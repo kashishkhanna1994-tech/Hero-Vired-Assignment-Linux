@@ -1,0 +1,77 @@
+#!/bin/bash
+
+set -euo pipefail
+
+HOSTNAME=$(hostname)
+DATE=$(date "+%Y-%m-%d %H-%M-%S")
+
+CPU_THRESHOLD=80
+MEM_THRESHOLD=80
+DISK_THRESHOLD=80
+
+EMAIL="ayush.gautam1997@gmail.com"
+
+Log_file="/usr/local/monitoring/system-monitor.log"
+
+# CPU Usage
+# ===============================
+
+CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
+CPU_INT=${CPU_USAGE%.*}
+
+# ===============================
+# Memory Usage
+# ===============================
+
+MEM_USAGE=$(free | awk '/Mem/ {printf("%.2f"), $3/$2 * 100}')
+MEM_INT=${MEM_USAGE%.*}
+
+# ===============================
+# Disk Usage
+# ===============================
+
+DISK_USAGE=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+
+# ===============================
+# Log System Status
+# ===============================
+
+echo "----------------------------------------" >> $Log_file
+echo "Date: $DATE" >> $Log_file
+echo "Server: $HOSTNAME" >> $Log_file
+echo "CPU Usage: $CPU_USAGE%" >> $Log_file
+echo "Memory Usage: $MEM_USAGE%" >> $Log_file
+echo "Disk Usage: $DISK_USAGE%" >> $Log_file
+
+# ===============================
+# Check Threshold
+# ===============================
+
+MESSAGE=""
+
+if [ "$CPU_INT" -gt "$CPU_THRESHOLD" ]; then
+MESSAGE+="CPU usage high: ${CPU_USAGE}%\n"
+fi
+
+if [ "$MEM_INT" -gt "$MEM_THRESHOLD" ]; then
+MESSAGE+="Memory usage high: ${MEM_USAGE}%\n"
+fi
+
+if [ "$DISK_USAGE" -gt "$DISK_THRESHOLD" ]; then
+MESSAGE+="Disk usage high: ${DISK_USAGE}%\n"
+fi
+
+# ===============================
+# Send Alert
+# ===============================
+
+if [ ! -z "$MESSAGE" ]; then
+
+echo -e "ALERT GENERATED\n$MESSAGE" >> $Log_file
+
+echo -e "Server: $HOSTNAME\nTime: $DATE\n\n$MESSAGE" | \
+mail -s "Server Alert: Resource Usage High" $EMAIL
+
+fi
+
+echo "Monitoring Completed" >> $Log_file
