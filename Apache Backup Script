@@ -1,0 +1,48 @@
+#!/bin/bash
+set -euo pipefail
+
+# Variables
+DATE=$(date +"%F_%H-%M-%S")
+BACKUP_DIR="/usr/local/Backup"
+BACKUP_FILE="$BACKUP_DIR/apache_backup_$DATE.tar.gz"
+LOGFILE="$BACKUP_DIR/apache_backup.log"
+APACHE_SERVICE="httpd"
+
+# Function for logging
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') : $1" | tee -a "$LOGFILE"
+}
+
+log "========== Apache Backup Script Started =========="
+
+# Check backup directory
+if [ ! -d "$BACKUP_DIR" ]; then
+    mkdir -p "$BACKUP_DIR"
+    log "Backup directory created: $BACKUP_DIR"
+fi
+
+# Check if Apache service is running
+if systemctl is-active --quiet $APACHE_SERVICE; then
+    log "Apache service is running."
+else
+    log "WARNING: Apache service is NOT running!"
+fi
+
+# Create backup
+tar -czf "$BACKUP_FILE" /etc/httpd /var/www/html 2>>"$LOGFILE"
+
+# Check backup status
+if [ $? -eq 0 ]; then
+    log "Backup created successfully: $BACKUP_FILE"
+else
+    log "ERROR: Backup failed!"
+    exit 1
+fi
+
+# Verify backup contents
+log "Verifying backup contents..."
+tar -tzf "$BACKUP_FILE" >>"$LOGFILE" 2>&1
+
+log "Backup verification completed."
+
+log "========== Apache Backup Script Finished =========="
